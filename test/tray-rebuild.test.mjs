@@ -108,7 +108,9 @@ function installCompleteMacosTrayBundle(bundle, { includeWidget = true } = {}) {
   const embeddedBinary = path.join(embedded, "MacOS", "Codex Router");
   writeFileSync(embeddedBinary, "binary", "utf8");
   chmodSync(embeddedBinary, 0o755);
-  writeFileSync(path.join(embedded, "Resources", "app.asar"), "archive", "utf8");
+  const bridge = path.join(embedded, "Resources", "bridge", "apps", "control-center", "electron");
+  mkdirSync(bridge, { recursive: true });
+  writeFileSync(path.join(bridge, "native-bridge.mjs"), "bridge", "utf8");
   return bundle;
 }
 
@@ -303,7 +305,11 @@ test("a stamped but incomplete packaged companion is rebuilt on every desktop pl
           "Control Center.app",
           "Contents",
           "Resources",
-          "app.asar",
+          "bridge",
+          "apps",
+          "control-center",
+          "electron",
+          "native-bridge.mjs",
         );
       },
     },
@@ -338,7 +344,7 @@ test("a stamped but incomplete packaged companion is rebuilt on every desktop pl
       assert.equal(
         trayRebuildPlan({ root: fakeRoot, platform: item.platform, home }),
         "rebuild",
-        `${item.platform} must not trust a stamp after app.asar disappears`,
+        `${item.platform} must not trust a stamp after its packaged payload disappears`,
       );
       mkdirSync(requiredArtifact, { recursive: true });
       assert.equal(
@@ -475,13 +481,16 @@ test("the macOS tray is signed only after its resources are assembled", () => {
   const sign = script.indexOf('--entitlements "$tray_dir/Resources/ModelRouterTray.entitlements"');
   const verify = script.indexOf('/usr/bin/codesign --verify --deep --strict "$bundle_dir"');
   assert.ok(resource >= 0, "the checkout link must be placed in the bundle");
-  assert.match(script, /trap cleanup_electron_output EXIT/);
+  assert.match(script, /trap cleanup_control_center_output EXIT/);
   assert.match(script, /trap 'exit 129' HUP/);
   assert.match(script, /trap 'exit 130' INT/);
   assert.match(script, /trap 'exit 143' TERM/);
-  assert.doesNotMatch(script, /trap cleanup_electron_output EXIT HUP INT TERM/);
+  assert.doesNotMatch(script, /trap cleanup_control_center_output EXIT HUP INT TERM/);
   assert.match(script, /Contents\/Resources\/Control Center\.app/);
-  assert.match(script, /electron-builder[\s\S]*--mac dir/);
+  // macOS embeds the native SwiftUI Control Center; Electron stays the
+  // Windows and Linux window.
+  assert.match(script, /scripts\/build-macos-control-center\.sh" "\$control_center_bundle"/);
+  assert.doesNotMatch(script, /electron-builder/);
   assert.match(script, /Control Center\.app\/Contents\/Resources\/router-root/);
   assert.match(script, /MODEL_ROUTER_CODESIGN_IDENTITY/);
   assert.match(script, /widget_storage_mode=local/);
@@ -658,7 +667,7 @@ test("committed macOS recovery keeps rollback until every versioned bundle artif
     "Contents/PlugIns/RouterUsageWidget.appex/Contents/Info.plist",
     "Contents/PlugIns/RouterUsageWidget.appex/Contents/MacOS/RouterUsageWidget",
     "Contents/Resources/Control Center.app/Contents/MacOS/Codex Router",
-    "Contents/Resources/Control Center.app/Contents/Resources/app.asar",
+    "Contents/Resources/Control Center.app/Contents/Resources/bridge/apps/control-center/electron/native-bridge.mjs",
   ];
   const executableArtifacts = [artifacts[0], artifacts[2], artifacts[3]];
   try {
@@ -735,19 +744,19 @@ test("committed macOS recovery keeps rollback until every versioned bundle artif
     );
     assert.notEqual(incompletePlan.status, 0);
     assert.match(incompletePlan.stderr, /committed live bundle is incomplete/);
-    const external = path.join(fixture.parent, "external-app.asar");
+    const external = path.join(fixture.parent, "external-native-bridge.mjs");
     writeFileSync(external, "outside");
     symlinkSync(external, archive);
     await assert.rejects(
       inspectMacosTrayCommittedBundle(fixture.bundle),
-      /app\.asar is not a regular file/,
+      /native-bridge\.mjs is not a regular file/,
     );
     rmSync(archive);
     writeFileSync(archive, "complete");
     chmodSync(archive, 0o666);
     await assert.rejects(
       inspectMacosTrayCommittedBundle(fixture.bundle),
-      /app\.asar has unsafe permissions 666/,
+      /native-bridge\.mjs has unsafe permissions 666/,
     );
   } finally {
     rmSync(fixture.parent, { recursive: true, force: true });
@@ -1523,4 +1532,23 @@ test("a custom menu-bar image is copied into Application Support", () => {
     /store\.setMenuBarCustomIconPath\(url\.path\)/,
     "the picker must not persist the original user path",
   );
+});
+
+test("a committed Electron-era bundle still counts as complete for rollback", {
+  skip: process.platform === "win32",
+}, async () => {
+  // Bundles built before the native SwiftUI Control Center embedded Electron.
+  // The first native update keeps one of them as its rollback copy, so the
+  // recovery check must accept app.asar in place of the native bridge.
+  const fixture = macosTransactionFixture({ phase: "committed", artifactSet: "widget-v1" });
+  try {
+    installCompleteMacosTrayBundle(fixture.bundle);
+    const resources = path.join(fixture.bundle, "Contents", "Resources", "Control Center.app", "Contents", "Resources");
+    rmSync(path.join(resources, "bridge"), { recursive: true, force: true });
+    assert.equal(await inspectMacosTrayCommittedBundle(fixture.bundle), false);
+    writeFileSync(path.join(resources, "app.asar"), "archive", "utf8");
+    assert.equal(await inspectMacosTrayCommittedBundle(fixture.bundle), true);
+  } finally {
+    rmSync(fixture.parent, { recursive: true, force: true });
+  }
 });

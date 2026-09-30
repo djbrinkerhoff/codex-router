@@ -136,7 +136,9 @@ test("Control Center packaging runs npm from its project directory", () => {
   const macos = readFileSync(path.join(root, "scripts", "build-macos-tray-app.sh"), "utf8");
   const windows = readFileSync(path.join(root, "scripts", "build-electron-companion.ps1"), "utf8");
   assert.match(shell, /\(\s*\n\s*cd "\$app_dir"\s*\n\s*npm ci/);
-  assert.match(macos, /\(\s*\n\s*cd "\$control_center_dir"\s*\n\s*npm ci/);
+  // The macOS app no longer packages Electron; its Control Center is the
+  // native SwiftUI app, which runs no npm step at all.
+  assert.doesNotMatch(macos, /npm (?:ci|run|test)/);
   assert.match(windows, /Push-Location \$App[\s\S]*?& npm ci/);
   assert.doesNotMatch(shell, /npm (?:ci|run|test).*--prefix/);
   assert.doesNotMatch(macos, /npm (?:ci|run|test).*--prefix/);

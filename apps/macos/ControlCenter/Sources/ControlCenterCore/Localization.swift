@@ -54,7 +54,7 @@ public final class StringCatalogs: @unchecked Sendable {
     let backend = load("backend.json")
     backendKeys = backend?["keys"]?.object?.compactMapValues(\.string) ?? [:]
     let groupName = try? NSRegularExpression(pattern: "\\(\\?<([A-Za-z_][A-Za-z0-9_]*)>")
-    backendPatterns = backend?["patterns"]?.items.compactMap { item in
+    backendPatterns = backend?["patterns"]?.items.compactMap { item -> (regex: NSRegularExpression, groups: [String], key: String)? in
       guard let source = item["source"]?.string, let key = item["key"]?.string,
         let regex = try? NSRegularExpression(pattern: source)
       else { return nil }

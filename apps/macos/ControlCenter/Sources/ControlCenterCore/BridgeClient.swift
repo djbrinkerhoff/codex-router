@@ -1,5 +1,11 @@
 import Foundation
 
+#if canImport(Darwin)
+import Darwin
+#else
+import Glibc
+#endif
+
 /// An error the Control Center shows to a person. The message is the
 /// router's own wording whenever the router produced one.
 public struct ControlCenterError: LocalizedError, Equatable, Sendable {
@@ -92,7 +98,7 @@ public struct LineAccumulator: Sendable {
 
 /// One decoded line from the bridge.
 public enum BridgeMessage: Equatable, Sendable {
-  case ready(protocol: Int, methods: [String])
+  case ready(version: Int, methods: [String])
   case operation(OperationEvent)
   case response(id: Int, result: Result<JSONValue, ControlCenterError>)
   case unknown
@@ -102,7 +108,7 @@ public enum BridgeMessage: Equatable, Sendable {
     if let event = value["event"]?.string {
       switch event {
       case "ready":
-        return .ready(protocol: value["protocol"]?.int ?? 0, methods: value["methods"]?.strings ?? [])
+        return .ready(version: value["protocol"]?.int ?? 0, methods: value["methods"]?.strings ?? [])
       case "operation":
         guard let payload = value["payload"], let operation = OperationEvent(payload: payload) else { return .unknown }
         return .operation(operation)
@@ -146,7 +152,14 @@ public final class BridgeClient: @unchecked Sendable {
   private var stderrTail = Data()
   private let eventHandler: @Sendable (OperationEvent) -> Void
 
+  /// A write to a bridge that has just exited must fail the call, not
+  /// deliver SIGPIPE to the whole app.
+  private static let ignoreBrokenPipes: Void = {
+    _ = signal(SIGPIPE, SIG_IGN)
+  }()
+
   public init(launch: @escaping () throws -> BridgeLaunch, onOperation: @escaping @Sendable (OperationEvent) -> Void) {
+    _ = Self.ignoreBrokenPipes
     self.launch = launch
     self.eventHandler = onOperation
   }

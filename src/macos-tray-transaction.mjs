@@ -199,7 +199,7 @@ export async function inspectMacosTrayLiveBundle(
 // A committed journal is the last copy of the rollback bundle. Do not remove
 // it merely because the live top-level directory exists: a killed copy or an
 // interrupted package assembly can leave a plausible .app whose native host,
-// embedded host, or renderer archive is absent. Walk every fixed parent with
+// embedded host, or its renderer archive or bridge is absent. Walk every fixed parent with
 // lstat so a symlink in the middle cannot make a file outside the bundle count.
 export async function inspectMacosTrayCommittedBundle(
   bundleDirectory,
@@ -232,7 +232,6 @@ export async function inspectMacosTrayCommittedBundle(
     ["Contents/Info.plist", false],
     ["Contents/MacOS/ModelRouterTray", true],
     ["Contents/Resources/Control Center.app/Contents/MacOS/Codex Router", true],
-    ["Contents/Resources/Control Center.app/Contents/Resources/app.asar", false],
   ];
   if (requireWidget) {
     requiredFiles.splice(2, 0,
@@ -248,6 +247,38 @@ export async function inspectMacosTrayCommittedBundle(
     if (!stats) return false;
     requireNonemptyRegularFile(stats, uid, `live bundle ${relative}`, { executable });
   }
+  return inspectEmbeddedControlCenterPayload(bundleDirectory, uid);
+}
+
+// The embedded Control Center carries its operations in one of two shapes.
+// The native SwiftUI window bundles native-bridge.mjs beside a copy of the
+// Electron operation layer; bundles built before it embedded Electron and
+// its app.asar. Either is a complete window. A rollback bundle is always the
+// older shape, so refusing it would strand recovery on the first update.
+const CONTROL_CENTER_RESOURCES = "Contents/Resources/Control Center.app/Contents/Resources";
+const NATIVE_BRIDGE_DIRECTORIES = [
+  "bridge",
+  "bridge/apps",
+  "bridge/apps/control-center",
+  "bridge/apps/control-center/electron",
+];
+
+async function inspectEmbeddedControlCenterPayload(bundleDirectory, uid) {
+  const resources = path.join(bundleDirectory, CONTROL_CENTER_RESOURCES);
+  const archive = await statOrNull(path.join(resources, "app.asar"));
+  if (archive) {
+    requireNonemptyRegularFile(archive, uid, `live bundle ${CONTROL_CENTER_RESOURCES}/app.asar`);
+    return true;
+  }
+  for (const relative of NATIVE_BRIDGE_DIRECTORIES) {
+    const stats = await statOrNull(path.join(resources, relative));
+    if (!stats) return false;
+    requireDirectory(stats, uid, `live bundle ${CONTROL_CENTER_RESOURCES}/${relative}`);
+  }
+  const bridge = "bridge/apps/control-center/electron/native-bridge.mjs";
+  const stats = await statOrNull(path.join(resources, bridge));
+  if (!stats) return false;
+  requireNonemptyRegularFile(stats, uid, `live bundle ${CONTROL_CENTER_RESOURCES}/${bridge}`);
   return true;
 }
 

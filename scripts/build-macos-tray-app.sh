@@ -53,50 +53,38 @@ node -e '
 # Callers capture this script's stdout as the bundle path, so compiler
 # progress must not land there.
 if [ "${MODEL_ROUTER_TRAY_UNIVERSAL:-0}" = "1" ]; then
-  # The generic CI artifact must launch on every supported Mac. SwiftPM and
-  # electron-builder both need the same two-architecture request or the outer
-  # app can launch while its embedded Control Center cannot (or vice versa).
+  # The generic CI artifact must launch on every supported Mac. The tray, the
+  # Control Center, and the widget all need the same two-architecture request
+  # or the outer app can launch while an embedded one cannot (or vice versa).
   swift build -c "$configuration" --package-path "$tray_dir" \
     --arch arm64 --arch x86_64 1>&2
   binary_dir=$(swift build -c "$configuration" --package-path "$tray_dir" \
     --arch arm64 --arch x86_64 --show-bin-path)
-  electron_arch=universal
   widget_arch=universal
 else
   swift build -c "$configuration" --package-path "$tray_dir" 1>&2
   binary_dir=$(swift build -c "$configuration" --package-path "$tray_dir" --show-bin-path)
   case $(uname -m) in
-    arm64) electron_arch=arm64; widget_arch=arm64 ;;
-    x86_64) electron_arch=x64; widget_arch=x86_64 ;;
+    arm64) widget_arch=arm64 ;;
+    x86_64) widget_arch=x86_64 ;;
     *) printf 'Unsupported macOS architecture: %s\n' "$(uname -m)" >&2; exit 1 ;;
   esac
 fi
-(
-  cd "$control_center_dir"
-  npm ci 1>&2
-  npm run check 1>&2
-  npm test 1>&2
-  npm run build 1>&2
-)
-electron_output=$(mktemp -d "${TMPDIR:-/tmp}/model-router-control-center.XXXXXX")
-cleanup_electron_output() {
-  rm -rf "$electron_output"
+# The Control Center is the native SwiftUI app (apps/macos/ControlCenter).
+# Windows and Linux keep the Electron window; macOS no longer builds it.
+control_center_output=$(mktemp -d "${TMPDIR:-/tmp}/model-router-control-center.XXXXXX")
+cleanup_control_center_output() {
+  rm -rf "$control_center_output"
 }
-trap cleanup_electron_output EXIT
+trap cleanup_control_center_output EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
-(
-  cd "$control_center_dir"
-  CSC_IDENTITY_AUTO_DISCOVERY=false ./node_modules/.bin/electron-builder \
-    --mac dir \
-    "--$electron_arch" \
-    --publish never \
-    "--config.directories.output=$electron_output" 1>&2
-)
-control_center_bundle=$(find "$electron_output" -maxdepth 3 -type d -name 'Codex Router.app' -print -quit)
-if [ -z "$control_center_bundle" ] || [ ! -d "$control_center_bundle" ]; then
-  printf 'The packaged Electron Control Center was not produced.\n' >&2
+control_center_bundle="$control_center_output/Control Center.app"
+"$repo_dir/scripts/build-macos-control-center.sh" "$control_center_bundle" \
+  "$short_version" "$bundle_version" "$app_version" "$control_protocol" >/dev/null
+if [ ! -x "$control_center_bundle/Contents/MacOS/Codex Router" ]; then
+  printf 'The native Control Center was not produced.\n' >&2
   exit 1
 fi
 mkdir -p "$bundle_dir/Contents/MacOS" "$bundle_dir/Contents/Resources"
@@ -169,6 +157,6 @@ fi
 /usr/bin/codesign --verify --deep --strict "$bundle_dir"
 
 trap - EXIT HUP INT TERM
-cleanup_electron_output
+cleanup_control_center_output
 
 printf '%s\n' "$bundle_dir"

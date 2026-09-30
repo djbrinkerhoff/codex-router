@@ -36,13 +36,17 @@ jobs:
         if: runner.os == 'macOS'
         working-directory: apps/macos/ModelRouterTray
         run: swift test
+      - name: Test the native macOS Control Center
+        if: runner.os == 'macOS'
+        working-directory: apps/macos/ControlCenter
+        run: swift test
       - name: Test the macOS widget
         if: runner.os == 'macOS'
         working-directory: apps/macos/RouterUsageWidget
         run: xcodebuild -project RouterUsageWidget.xcodeproj -scheme RouterUsageWidget -destination 'platform=macOS' test CODE_SIGNING_ALLOWED=NO
       - name: Check shell syntax
         if: runner.os != 'Windows'
-        run: for file in install.sh bin/* scripts/build-electron-companion.sh scripts/build-macos-tray-app.sh scripts/build-macos-widget.sh packaging/homebrew/check-core-readiness.sh; do [ "$(head -n 1 "$file")" != '#!/bin/sh' ] || sh -n "$file"; done
+        run: for file in install.sh bin/* scripts/build-electron-companion.sh scripts/build-macos-tray-app.sh scripts/build-macos-control-center.sh scripts/build-macos-widget.sh packaging/homebrew/check-core-readiness.sh; do [ "$(head -n 1 "$file")" != '#!/bin/sh' ] || sh -n "$file"; done
       - name: Check installer help
         if: runner.os != 'Windows'
         run: ./install.sh --help
@@ -323,34 +327,15 @@ jobs:
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
     steps:
       - uses: actions/checkout@v7
+      # The embedded Control Center is the native SwiftUI app; its bridge runs
+      # on this Node and needs no npm install of its own.
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
-          cache: npm
-          cache-dependency-path: apps/control-center/package-lock.json
-      # The tray build runs electron-builder too, so it has the same dependency
-      # on those download hosts staying up.
-      - name: Restore electron-builder downloads
-        id: electron-downloads
-        uses: actions/cache/restore@v6
-        with:
-          path: |
-            ~/Library/Caches/electron
-            ~/Library/Caches/electron-builder
-          key: electron-builder-${{ runner.os }}-${{ hashFiles('apps/control-center/package-lock.json') }}
-          restore-keys: electron-builder-${{ runner.os }}-
       - name: Build native tray with embedded Control Center
         env:
           MODEL_ROUTER_TRAY_UNIVERSAL: "1"
         run: scripts/build-macos-tray-app.sh "$RUNNER_TEMP/Codex Router.app"
-      - name: Save electron-builder downloads
-        if: ${{ !cancelled() && steps.electron-downloads.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v6
-        with:
-          path: |
-            ~/Library/Caches/electron
-            ~/Library/Caches/electron-builder
-          key: electron-builder-${{ runner.os }}-${{ hashFiles('apps/control-center/package-lock.json') }}
       - name: Verify universal binaries, version, and complete bundle seal
         shell: bash
         run: |
@@ -512,7 +497,7 @@ jobs:
           test "$second_pid" != "$first_pid"
 
           # A normal quit of the outer app owns the complete lifetime: AppKit
-          # stops the embedded Electron child and both processes exit cleanly.
+          # stops the embedded Control Center and both processes exit cleanly.
           terminate_bundle io.github.codex-router.tray
           wait_for_bundle_exit io.github.codex-router.tray
           wait_for_lifecycle false false false >/dev/null

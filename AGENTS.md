@@ -1957,6 +1957,56 @@ almost never. Keep the SVG free of `--` inside comments and of SVG filter
 primitives — CoreSVG, which is what `sips` uses, rejects the first and silently
 drops the second.
 
+## The macOS Control Center is native, and its operations are Electron's
+
+On macOS the Control Center embedded in `Codex Router.app` is the SwiftUI app
+in `apps/macos/ControlCenter`. Windows and Linux keep the Electron window in
+`apps/control-center`. The two windows share one operation layer: the native
+app spawns `apps/control-center/electron/native-bridge.mjs`, a headless host
+that installs the very `registerIpcHandlers` the Electron main process uses and
+serves them over newline-delimited JSON on stdio.
+
+1. **Never re-implement an operation in Swift.** A new router action is added
+   to `ipc.mjs` and `preload.cjs` first, then as a typed method in
+   `Sources/ControlCenterCore/RouterControl.swift` that builds exactly the
+   preload's payload. `test/control-center-native-contract.test.mjs` fails when
+   the two operation sets differ. Validation, argv construction, the mutation
+   queue, the version-skew gate, and credential-over-stdin handling therefore
+   live only in `ipc.mjs` and `command-runner.mjs`.
+2. **Pages call `RouterControl` and nothing else.** No `Process`, no shell, no
+   file reads beyond the bundled logo images, no credential in `UserDefaults`
+   or a log line. A credential goes to `saveProviderCredential` or
+   `addCustomEndpoint` from a `SecureField` and the field is cleared. The same
+   contract test scans every page source for these.
+3. **The bundle keeps the Electron window's contract.** Identifier
+   `io.github.codex-router.control-center`, executable `Codex Router`,
+   `--query-lifecycle` (one JSON object on stdout, status 0, before AppKit
+   starts), `--quit-for-update`, `--tray-only`, the
+   `control-center-lifecycle.json` record, and the `--router-destination` /
+   `codex-router://control-center/...` navigation requests. The tray,
+   `bin/model-router-tray`, and the CI smoke test read these; changing one
+   breaks an update, not a unit test.
+4. **Copy comes from the renderer's locale modules.** Edit
+   `apps/control-center/src/locales/*.ts`, then run
+   `node apps/macos/ControlCenter/scripts/generate-strings.mjs`. The committed
+   catalogs are checked in CI and by the macOS build; never edit them by hand.
+5. **The bundle carries its own copy of the operation layer.**
+   `scripts/build-macos-control-center.sh` copies `apps/control-center/electron`,
+   the five `src` modules Electron Builder ships beside `app.asar`, and a full
+   `router-src`, and the bridge is started with `--resources-path` so
+   `command-runner.mjs` and `ipc.mjs` read them exactly as they read Electron's
+   `process.resourcesPath`. `src/macos-tray-transaction.mjs` accepts either
+   `app.asar` or the bridge as the embedded window's payload, because the first
+   native update keeps an Electron-era bundle as its rollback copy.
+6. **Node is found, not bundled.** `CODEX_ROUTER_NODE_BIN`, then the user-level
+   install directories the tray also searches, then the inherited PATH. A
+   missing Node is shown in the window as an actionable error; the lifecycle
+   record still reaches `ready` so a rebuild is not rolled back for it.
+7. **Verify on a Mac.** `swift test` in `apps/macos/ControlCenter`, then
+   `scripts/build-macos-tray-app.sh` and the unified-app smoke in
+   `.github/workflows/ci.yml`. The pages have no unit tests of their own; a
+   change to one is checked by opening that page against a running router.
+
 ## Upstream retries are legal only before the first relayed byte
 
 `src/upstream-retry.mjs` retries a native upstream request a bounded number of

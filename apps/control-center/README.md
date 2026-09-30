@@ -41,9 +41,12 @@ credentials, or service logic in the renderer.
 
 The Control Center and tray ship as one visible application on every platform.
 On macOS, `Codex Router.app` keeps the existing Swift-native menu-bar item,
-notch overlay, and desktop widget, and embeds this Electron window inside the
-same signed bundle. On Windows and Linux, this Electron process owns the
-operating system tray directly. Closing the window leaves a proven tray owner
+notch overlay, and desktop widget, and embeds the native SwiftUI Control
+Center from `apps/macos/ControlCenter` inside the same signed bundle; that app
+runs this directory's `electron/ipc.mjs` handlers through
+`electron/native-bridge.mjs`, so both windows share one operation layer. On
+Windows and Linux, this Electron process owns the operating system tray
+directly. Closing the window leaves a proven tray owner
 running; opening the app or clicking the tray restores the existing window.
 When Linux cannot positively verify a registered StatusNotifier host, tray-only
 startup keeps the window visible and closing that fallback exits the process.
@@ -57,10 +60,9 @@ models, local runtime controls, health, usage, and settings are the cross-platfo
 contract for this beta.
 
 The macOS host sets `CODEX_ROUTER_EMBEDDED_CONTROL_CENTER=1` only for its
-bundled Electron child. That suppresses a duplicate Electron tray. The child
-shows the shared product icon in the Dock and Command-Tab while its window is
-open, then hides that entry when the window closes; standalone development and
-Windows/Linux packages keep their own tray.
+bundled Control Center. An Electron window started that way suppresses a
+duplicate Electron tray; standalone development and Windows/Linux packages keep
+their own tray.
 
 Service stop and restart remain intentional terminal operations during the
 beta because either can interrupt active turns or downloads. The Control Center
@@ -134,9 +136,9 @@ npm run electron:build
 
 `electron:build` can create a standalone developer artifact for the current
 host. Shipped Windows and Linux artifacts are NSIS/AppImage packages. Shipped
-macOS builds use `scripts/build-macos-tray-app.sh`, which embeds the packaged
-Electron child inside the one outer `Codex Router.app`; CI and releases do not
-publish the child separately. Beta artifacts are unsigned unless signing
+macOS builds use `scripts/build-macos-tray-app.sh`, which embeds the native
+SwiftUI Control Center (`scripts/build-macos-control-center.sh`) inside the one
+outer `Codex Router.app`; CI and releases do not publish it separately. Beta artifacts are unsigned unless signing
 credentials are configured. Public macOS distribution additionally requires
 Developer ID signing/notarization, and Windows requires Authenticode.
 

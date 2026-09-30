@@ -146,7 +146,7 @@ final class AppModel: ObservableObject {
     let defaults = UserDefaults.standard
     let storedTheme = defaults.string(forKey: Self.themeKey).flatMap(AppTheme.init(rawValue:)) ?? .system
     let storedView = defaults.string(forKey: Self.viewKey)
-    let initialView = storedView == "providers" ? .models : (storedView.flatMap(ViewID.init(rawValue:)) ?? .dashboard)
+    let initialView: ViewID = storedView == "providers" ? .models : (storedView.flatMap(ViewID.init(rawValue:)) ?? .dashboard)
     let catalogs = StringCatalogs.shared
     let storedLanguage = defaults.string(forKey: Self.languageKey)
     let initialLanguage = storedLanguage.flatMap { catalogs.isLanguage($0) ? $0 : nil }
@@ -331,8 +331,10 @@ final class AppModel: ObservableObject {
     let localActive = settings["localModels"]?["download"]?["status"]?.string == "downloading"
       || Self.activeMlxStates.contains(settings["localModels"]?["mlx"]?["operation"]?["status"]?.string ?? "idle")
     let visionActive = settings["visionBridge"]?["download"]?["status"]?.string == "downloading"
-    let localModels = localActive ? try? await api.getLocalModels() : nil
-    let visionBridge = visionActive ? try? await api.getVisionBridge() : nil
+    var localModels: JSONValue?
+    if localActive { localModels = try? await api.getLocalModels() }
+    var visionBridge: JSONValue?
+    if visionActive { visionBridge = try? await api.getVisionBridge() }
     guard var current = snapshot, current["targets"]?["codex"]?["modelSettings"] != nil else { return }
     if let localModels {
       current = current.setting(localModels, at: ["targets", "codex", "modelSettings", "localModels"])

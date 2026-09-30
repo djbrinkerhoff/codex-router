@@ -253,6 +253,7 @@ const TRAY_PLATFORMS = {
     sources: (root) => {
       const base = path.join(root, "apps", "macos", "ModelRouterTray");
       const widget = path.join(root, "apps", "macos", "RouterUsageWidget");
+      const nativeControlCenter = path.join(root, "apps", "macos", "ControlCenter");
       return [
         path.join(root, "scripts", "build-macos-tray-app.sh"),
         path.join(root, "scripts", "build-macos-widget.sh"),
@@ -274,6 +275,17 @@ const TRAY_PLATFORMS = {
           ".xcscheme",
           ".yml",
         ]),
+        // The embedded Control Center is the native SwiftUI app. It bundles
+        // the Electron operation layer (native-bridge.mjs and ipc.mjs) and
+        // the renderer's string catalogs and marks, so controlCenterSources
+        // stays an input as well.
+        // Named subtrees only: a local `swift build` leaves .build/ beside
+        // them, and its generated files must not change the fingerprint.
+        path.join(root, "scripts", "build-macos-control-center.sh"),
+        path.join(nativeControlCenter, "Package.swift"),
+        path.join(nativeControlCenter, "Resources", "Info.plist"),
+        ...sourceTreeFiles(path.join(nativeControlCenter, "scripts"), [".mjs"]),
+        ...sourceTreeFiles(path.join(nativeControlCenter, "Sources"), [".swift", ".json"]),
         ...controlCenterSources(root),
       ];
     },
@@ -299,7 +311,9 @@ const TRAY_PLATFORMS = {
           "RouterUsageWidget",
         ),
         path.join(embedded, "MacOS", "Codex Router"),
-        path.join(embedded, "Resources", "app.asar"),
+        // An Electron-era bundle has app.asar and no bridge, so it reads as
+        // stale and the next update replaces it with the native window.
+        path.join(embedded, "Resources", "bridge", "apps", "control-center", "electron", "native-bridge.mjs"),
       ];
     },
     // The source fingerprint is mutable router state, not an app resource.
