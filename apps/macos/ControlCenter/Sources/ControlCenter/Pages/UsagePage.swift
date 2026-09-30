@@ -35,6 +35,8 @@ struct UsagePage: View {
         header(context, t).id(Self.topID)
         pageContent(context, t)
       }
+      .accessibilityElement(children: .contain)
+      .accessibilityLabel(t("usage.overviewAria"))
       .onAppear { handleFocus(context, proxy) }
       .onChange(of: model.usageFocusRequest) { _ in handleFocus(context, proxy) }
       .onChange(of: model.refreshing) { _ in handleFocus(context, proxy) }

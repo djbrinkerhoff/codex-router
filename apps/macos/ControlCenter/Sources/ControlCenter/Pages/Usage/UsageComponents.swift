@@ -231,6 +231,7 @@ struct UsageMetricCard: View {
       }
       if let remaining {
         MeterBar(percent: remaining, tone: tone == .neutral ? .accent : tone)
+          .accessibilityLabel(quotaLabel(remaining, t))
       }
       if !isBalance && UsageLogic.hasMetricCounts(metric) {
         facts(t)
@@ -261,6 +262,11 @@ struct UsageMetricCard: View {
     if remaining < 15 { return .danger }
     if remaining < 35 { return .warning }
     return .neutral
+  }
+
+  private func quotaLabel(_ remaining: Double, _ t: Translator) -> String {
+    let name = UsageLogic.nonEmpty(metric["label"]?.string) ?? t("usage.metric.quota")
+    return "\(name): \(t("usage.metric.percentRemaining", ["percent": Int(remaining.rounded())]))"
   }
 
   private func labelText(isBalance: Bool, _ t: Translator) -> String {

@@ -66,7 +66,7 @@ struct DashboardTokenActivityView: View, Equatable {
     HStack(alignment: .top, spacing: 12) {
       VStack(alignment: .leading, spacing: 2) {
         Text(t("dashboard.activity.title")).font(.system(size: 15, weight: .semibold))
-        Text(description(total: total))
+        Text(descriptionText(total: total))
           .font(.system(size: 12))
           .foregroundStyle(.secondary)
           .fixedSize(horizontal: false, vertical: true)
@@ -84,7 +84,7 @@ struct DashboardTokenActivityView: View, Equatable {
     }
   }
 
-  private func description(total: Double) -> String {
+  private func descriptionText(total: Double) -> String {
     if providerUsage.truthy {
       return t("dashboard.activity.lastYear", ["count": Format.exactNumber(total, t)])
     }

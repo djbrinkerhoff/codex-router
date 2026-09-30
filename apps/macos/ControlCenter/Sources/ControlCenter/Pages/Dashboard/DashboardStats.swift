@@ -341,7 +341,9 @@ enum DashboardStats {
     guard let stamp = timestamp(value) else { return t("status.countdown.unavailable") }
     let remaining = stamp - now
     if remaining <= 0 { return t("status.countdown.refreshDue") }
-    let minutes = Int((remaining / 60_000).rounded(.up))
+    let minuteCount = (remaining / 60_000).rounded(.up)
+    if !minuteCount.isFinite || minuteCount > 1e12 { return t("status.countdown.unavailable") }
+    let minutes = Int(minuteCount)
     if minutes < 60 { return "\(minutes)m" }
     let hours = minutes / 60
     if hours < 24 { return "\(hours)h \(minutes % 60)m" }
@@ -785,7 +787,7 @@ enum DashboardStats {
           tokensPerSecond: DashboardJS.isFiniteNumber(model["observedTokensPerSecond"])
             ? DashboardJS.number(model["observedTokensPerSecond"])
             : nil,
-          speedSampleCount: Int(DashboardJS.numberOrZero(model["speedSampleCount"]))
+          speedSampleCount: DashboardJS.safeInt(DashboardJS.numberOrZero(model["speedSampleCount"]))
         ))
       }
     }
@@ -924,6 +926,7 @@ enum DashboardStats {
   static func levelForTokenActivity(_ tokens: Double, max maximum: Double) -> Int {
     if tokens <= 0 || maximum <= 0 { return 0 }
     let scaled = (log1p(tokens) / log1p(maximum)) * 4
+    if !scaled.isFinite { return tokens.isInfinite ? 4 : 0 }
     return Swift.max(1, Swift.min(4, Int(scaled.rounded(.up))))
   }
 }

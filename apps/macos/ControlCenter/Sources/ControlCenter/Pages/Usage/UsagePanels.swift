@@ -127,6 +127,7 @@ struct UsageAllowancePanel: View {
       if !selectedRows.isEmpty {
         groupLabel(t("usage.allowances.selected", ["name": source.name]))
         cards(selectedRows)
+          .accessibilityLabel(t("usage.allowances.named", ["name": source.name]))
         if !otherRows.isEmpty { groupLabel(t("usage.allowances.otherAccounts")) }
       }
       if !otherRows.isEmpty || !usageReady {
@@ -134,6 +135,7 @@ struct UsageAllowancePanel: View {
           cardStack(otherRows)
           if !usageReady { SkeletonBlock(height: 64) }
         }
+        .accessibilityLabel(selectedRows.isEmpty ? t("usage.allowances.allAria") : t("usage.allowances.otherAria"))
       }
     } else if !usageReady {
       PanelSkeleton(label: t("usage.loading.allowances"), count: 2)

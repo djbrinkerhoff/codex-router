@@ -208,7 +208,6 @@ struct StatusServiceHealthPanel: View {
       }
       .buttonStyle(.plain)
       .accessibilityLabel(t("serviceHealth.title"))
-      .accessibilityValue(detailsOpen ? "expanded" : "collapsed")
       Spacer(minLength: 8)
       Badge(summary, tone: tone)
       if attention > 0 {

@@ -58,6 +58,13 @@ enum DashboardJS {
     return text
   }
 
+  /// `Int(value)` that cannot trap: non-finite reads as 0 and huge values
+  /// clamp, since router JSON can carry numeric strings such as "Infinity".
+  static func safeInt(_ value: Double) -> Int {
+    guard value.isFinite else { return 0 }
+    return Int(min(max(value, -1e15), 1e15))
+  }
+
   /// `String(number)` for the values this page prints: integers without a
   /// fractional part.
   static func string(_ value: Double) -> String {
