@@ -267,10 +267,10 @@ final class AppModel: ObservableObject {
     // Unstructured tasks inherit the main actor, so every commit below runs
     // there; the reads themselves are concurrent requests to the bridge.
     let reads: [Task<Void, Never>] = [
-      Task { await self.settle(.snapshot, { [api] in try await api.getSnapshot() }, commit: { [weak self] in self?.commitSnapshot($0) }) },
-      Task { await self.settle(.providers, { [api] in try await api.getProviders() }, commit: { [weak self] in self?.providers = $0 }) },
-      Task { await self.settle(.presence, { [api] in try await api.getPresence() }, commit: { [weak self] in self?.presence = $0 }) },
-      Task {
+      Task { [self] in await self.settle(.snapshot, { [api] in try await api.getSnapshot() }, commit: { [weak self] in self?.commitSnapshot($0) }) },
+      Task { [self] in await self.settle(.providers, { [api] in try await api.getProviders() }, commit: { [weak self] in self?.providers = $0 }) },
+      Task { [self] in await self.settle(.presence, { [api] in try await api.getPresence() }, commit: { [weak self] in self?.presence = $0 }) },
+      Task { [self] in
         await self.settle(
           .health,
           { [api] in try await api.getHealth() },
@@ -306,8 +306,8 @@ final class AppModel: ObservableObject {
 
   func refreshUsage() async {
     let reads: [Task<Void, Never>] = [
-      Task { await self.settle(.accountUsage, { [api] in try await api.getAccountUsage() }, commit: { [weak self] in self?.accountUsage = $0 }) },
-      Task { await self.settle(.providerUsage, { [api] in try await api.getProviderUsage() }, commit: { [weak self] in self?.providerUsage = $0 }) },
+      Task { [self] in await self.settle(.accountUsage, { [api] in try await api.getAccountUsage() }, commit: { [weak self] in self?.accountUsage = $0 }) },
+      Task { [self] in await self.settle(.providerUsage, { [api] in try await api.getProviderUsage() }, commit: { [weak self] in self?.providerUsage = $0 }) },
     ]
     for read in reads { await read.value }
   }

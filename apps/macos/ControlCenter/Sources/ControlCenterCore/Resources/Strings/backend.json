@@ -971,7 +971,7 @@
   "The provider withdrew the model; remove or replace the route, then refresh the catalog.": "backend.doctor.routeWithdrawn",
   "The router can run continuously or follow the Codex desktop lifecycle.": "settings.service.description",
   "The router operation did not finish.": "app.error.operationIncomplete",
-  "The router returned an empty {range} telemetry window; this is different from a failed health check.": "dashboard.traffic.emptyWindow",
+  "The router returned no telemetry for {range}; this is different from a failed health check.": "dashboard.traffic.emptyWindow",
   "The same model reaches you through more than one account. Each one has its own credential, quota, and pricing.": "models.family.multiRouteNote",
   "The secret is sent once to the router's hidden standard-input prompt. It is never added to a command.": "models.credential.description",
   "The selected reader runs only when the target model cannot accept images.": "local.vision.readDetail",

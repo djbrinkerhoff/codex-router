@@ -132,13 +132,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
       defer: false
     )
     window.title = "Codex Router"
-    window.titlebarAppearsTransparent = true
-    window.titleVisibility = .hidden
+    window.toolbar = NSToolbar(identifier: "CodexRouterControlCenter")
+    window.toolbarStyle = .unified
     window.minSize = NSSize(width: 960, height: 640)
     window.isReleasedWhenClosed = false
+    // A hosting controller, not a bare hosting view, so the split view's
+    // sidebar toggle and the page toolbar reach the window's own toolbar.
+    // The window, not the content's ideal size, owns the frame.
+    let host = NSHostingController(rootView: RootView().environmentObject(model))
+    host.sizingOptions = []
+    if #available(macOS 14.0, *) { host.sceneBridgingOptions = [.toolbars, .title] }
+    window.contentViewController = host
+    window.setContentSize(NSSize(width: 1280, height: 840))
     window.setFrameAutosaveName("CodexRouterControlCenter")
     if !window.setFrameUsingName("CodexRouterControlCenter") { window.center() }
-    window.contentView = NSHostingView(rootView: RootView().environmentObject(model))
     window.delegate = self
     self.window = window
   }

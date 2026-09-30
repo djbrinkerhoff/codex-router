@@ -398,7 +398,7 @@
  "dashboard.traffic.daily": "Daily local buckets from the retained router ledger. This is observed traffic, not provider billing.",
  "dashboard.traffic.dailyLedger": "Daily bars use the retained provider ledger when available.",
  "dashboard.traffic.emptyBody": "Traffic appears once the router snapshot loads.",
- "dashboard.traffic.emptyWindow": "The router returned an empty {range} telemetry window; this is different from a failed health check.",
+ "dashboard.traffic.emptyWindow": "The router returned no telemetry for {range}; this is different from a failed health check.",
  "dashboard.traffic.hourly": "Hourly local buckets from router request telemetry. This is observed traffic, not provider billing.",
  "dashboard.traffic.hourlyEvents": "Hourly bars use the latest 1,000 event details; this router does not publish an hourly rollup.",
  "dashboard.traffic.hourlyRollup": "Hourly bars use the router's full 24-hour rollup.",

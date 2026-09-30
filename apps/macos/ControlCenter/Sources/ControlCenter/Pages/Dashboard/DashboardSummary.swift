@@ -199,17 +199,41 @@ struct DashboardSummaryTiles: View {
   let tiles: [DashboardTile]
   let t: Translator
   let onOpen: (ViewID) -> Void
+  @State private var width: CGFloat = 0
 
   var body: some View {
-    LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 0, alignment: .top)], alignment: .leading, spacing: 0) {
-      ForEach(tiles) { tile in
-        DashboardTileCell(tile: tile, t: t) { onOpen(tile.view) }
-      }
-    }
+    // One row when every tile fits at a readable width; otherwise three
+    // columns, and the last row's tiles widen to fill it rather than leave an
+    // empty cell beside them.
+    grid(columns: width >= CGFloat(tiles.count) * 160 ? tiles.count : 3)
+      .background(GeometryReader { proxy in
+        Color.clear
+          .onAppear { width = proxy.size.width }
+          .onChange(of: proxy.size.width) { width = $0 }
+      })
     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     .panelStyle()
     .accessibilityElement(children: .contain)
     .accessibilityLabel(t("dashboard.summaryAria"))
+  }
+
+  private func grid(columns: Int) -> some View {
+    let columns = max(1, min(columns, tiles.count))
+    // Grid units: a short last row splits the full width evenly, so with
+    // three columns and five tiles the last two each take half.
+    let remainder = tiles.count % columns
+    let units = remainder == 0 ? columns : columns * remainder
+    return Grid(horizontalSpacing: 0, verticalSpacing: 0) {
+      ForEach(Array(stride(from: 0, to: tiles.count, by: columns)), id: \.self) { start in
+        let row = Array(tiles[start..<min(start + columns, tiles.count)])
+        GridRow(alignment: .top) {
+          ForEach(row) { tile in
+            DashboardTileCell(tile: tile, t: t) { onOpen(tile.view) }
+              .gridCellColumns(units / row.count)
+          }
+        }
+      }
+    }
   }
 }
 

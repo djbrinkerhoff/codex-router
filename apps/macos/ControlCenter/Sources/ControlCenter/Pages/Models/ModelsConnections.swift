@@ -167,9 +167,11 @@ struct ModelsConnectionsBar: View {
             .lineLimit(1)
         }
       } else {
+        let stalled = dotEnabled && runtimeStopped(entry)
         Circle()
-          .fill(dotEnabled ? Palette.success : Color.secondary.opacity(0.4))
+          .fill(stalled ? Palette.warning : (dotEnabled ? Palette.success : Color.secondary.opacity(0.4)))
           .frame(width: 7, height: 7)
+          .help(stalled ? model.t("local.ollama.notRunning") : "")
           .accessibilityHidden(true)
       }
     }
@@ -179,6 +181,15 @@ struct ModelsConnectionsBar: View {
     .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.secondary.opacity(0.08)))
     .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Palette.border))
     .contentShape(Rectangle())
+  }
+
+  /// The Ollama provider is switched on but its runtime is not answering, so
+  /// its models cannot be served however the switch is set. A green dot would
+  /// contradict the Local page.
+  private func runtimeStopped(_ entry: ModelsDirectoryEntry) -> Bool {
+    guard entry.id == "local",
+          let runtime = model.target?["modelSettings"]?["localModels"]?["runtime"] else { return false }
+    return runtime["running"]?.bool != true
   }
 
   private func providerMenu(

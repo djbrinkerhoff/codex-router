@@ -2791,6 +2791,26 @@ test("a crashing router child is reported as its message, not as a stack trace",
   // Redaction runs first and drops a whole line that names a credential, so
   // such a line can never become the reported sentence.
   assert.doesNotMatch(safeFailure("Error: the api key is unavailable\n    at x"), /api key/);
+  // Node's coded errors carry the code between the name and the message.
+  assert.equal(
+    safeFailure("node:internal/x:1\n  throw err;\n\nError [ERR_INVALID_STATE]: The queue is closed.\n    at x (file:///x.mjs:1:1)"),
+    "The queue is closed.",
+  );
+  // A checkout without its npm dependencies says how to install them rather
+  // than relaying the module resolver's stack.
+  const unresolved = [
+    "node:internal/modules/package_json_reader:314",
+    "  throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);",
+    "        ^",
+    "",
+    "Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'proper-lockfile' imported from /src/codex-router/src/model-overlay-lock.mjs",
+    "    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:314:9)",
+  ].join("\n");
+  assert.equal(
+    safeFailure(unresolved),
+    "The router's Node.js dependencies are not installed (missing package 'proper-lockfile'). " +
+      "Run npm ci in the router source folder, then try again.",
+  );
   // A child that failed without throwing has no report to trim.
   assert.equal(
     safeFailure("Usage: providers generic add-model PROVIDER MODEL_ID"),

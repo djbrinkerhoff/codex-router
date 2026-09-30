@@ -422,4 +422,16 @@ final class RouterLocatorTests: XCTestCase {
       expected
     )
   }
+
+  func testCheckoutBridgeFromARelativeLaunchIsAbsolute() throws {
+    // `swift run` passes a relative argv[0]; the bridge's working directory
+    // must still name the checkout from anywhere.
+    let base = URL(fileURLWithPath: "/src/codex-router/apps/macos/ControlCenter/", isDirectory: true)
+    let executable = URL(fileURLWithPath: ".build/out/Products/Debug/ControlCenter", relativeTo: base)
+    let expected = "/src/codex-router/apps/control-center/electron/native-bridge.mjs"
+    let script = try XCTUnwrap(RouterLocator.checkoutBridge(environment: [:], executable: executable, fileExists: { $0 == expected }))
+    XCTAssertNil(script.baseURL)
+    XCTAssertEqual(script.relativePath, expected)
+    XCTAssertEqual(script.deletingLastPathComponent().relativePath, "/src/codex-router/apps/control-center/electron")
+  }
 }

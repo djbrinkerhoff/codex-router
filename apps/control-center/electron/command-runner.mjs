@@ -604,11 +604,21 @@ export function assertMutationCompatibility(sourceRoot = discoverSourceRoot()) {
 // and the stack. Only the message says anything to the person reading it, so
 // keep that and drop the rest. A child that failed without throwing (a usage
 // message, a provider's own refusal) has no such report and is kept whole.
+// Node prints a coded error as `Error [ERR_X]: message`.
+const THROWN_ERROR = /^(?:[A-Za-z_$][\w$]*)?Error(?: \[[A-Z0-9_]+\])?: /;
+
 function routerFailureSentence(text) {
+  // A checkout whose npm dependencies were never installed fails before any
+  // router code runs; name the fix instead of the resolver's internals.
+  const missing = /\[ERR_MODULE_NOT_FOUND\]: Cannot find package '([^']+)'/.exec(text);
+  if (missing) {
+    return `The router's Node.js dependencies are not installed (missing package '${missing[1]}'). ` +
+      "Run npm ci in the router source folder, then try again.";
+  }
   const lines = text.split("\n");
-  const thrown = lines.findIndex((line) => /^(?:[A-Za-z_$][\w$]*)?Error: \S/.test(line.trim()));
+  const thrown = lines.findIndex((line) => THROWN_ERROR.test(line.trim()) && /\S/.test(line.trim().replace(THROWN_ERROR, "")));
   if (thrown === -1) return text;
-  const message = [lines[thrown].trim().replace(/^(?:[A-Za-z_$][\w$]*)?Error:\s*/, "")];
+  const message = [lines[thrown].trim().replace(THROWN_ERROR, "")];
   // A message can wrap; keep following lines until the stack or a blank line.
   for (const line of lines.slice(thrown + 1)) {
     if (!line.trim() || /^\s+at\s/.test(line) || /^\s*\{/.test(line)) break;

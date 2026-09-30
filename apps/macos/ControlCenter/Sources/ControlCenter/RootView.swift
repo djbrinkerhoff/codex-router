@@ -1,38 +1,25 @@
 import ControlCenterCore
 import SwiftUI
 
-/// The window: sidebar, title row, the active page, search, and toasts.
-/// Ported from the shell in `App.tsx`.
+/// The window: a stock split view with the section list in the system
+/// sidebar, the active page in the detail column, the window toolbar, search,
+/// and toasts. Ported from the shell in `App.tsx`.
 struct RootView: View {
   @EnvironmentObject private var model: AppModel
 
+  private var columns: Binding<NavigationSplitViewVisibility> {
+    Binding(
+      get: { model.sidebarOpen ? .all : .detailOnly },
+      set: { model.sidebarOpen = $0 != .detailOnly }
+    )
+  }
+
   var body: some View {
-    HStack(spacing: 0) {
-      if model.sidebarOpen {
-        Sidebar()
-          .frame(width: 232)
-          .transition(.move(edge: .leading))
-        Divider()
-      }
-      VStack(spacing: 0) {
-        TitleRow()
-        Divider()
-        ScrollView {
-          VStack(alignment: .leading, spacing: 16) {
-            if let message = model.loadError ?? model.firstReadError {
-              InlineNotice(tone: .warning, title: model.t("app.data.loadError"), message: model.t.backend(message))
-            }
-            page
-          }
-          .padding(.horizontal, 28)
-          .padding(.vertical, 22)
-          .frame(maxWidth: 1180, alignment: .leading)
-          .frame(maxWidth: .infinity, alignment: .top)
-        }
-        .id(model.view)
-      }
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
-      .background(Palette.canvas)
+    NavigationSplitView(columnVisibility: columns) {
+      Sidebar()
+        .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 300)
+    } detail: {
+      Detail()
     }
     .overlay(alignment: .bottomTrailing) {
       if let toast = model.toast {
@@ -45,100 +32,60 @@ struct RootView: View {
       SearchSheet()
         .environmentObject(model)
     }
-    .animation(.easeOut(duration: 0.18), value: model.sidebarOpen)
     .animation(.easeOut(duration: 0.18), value: model.toast)
     .environment(\.layoutDirection, model.t.option.rtl ? .rightToLeft : .leftToRight)
     .environment(\.locale, model.t.locale)
   }
-
-  @ViewBuilder private var page: some View {
-    switch model.view {
-    case .dashboard: DashboardPage()
-    case .usage: UsagePage()
-    case .status: StatusPage()
-    case .models: ModelsPage()
-    case .local: LocalPage()
-    case .harness: HarnessPage()
-    case .context: ContextPage()
-    case .settings: SettingsPage()
-    }
-  }
 }
 
+/// The section list. A `.sidebar` list draws the system sidebar material,
+/// selection, and row metrics, so the window matches the rest of macOS in
+/// light, dark, and increased-contrast appearances.
 private struct Sidebar: View {
   @EnvironmentObject private var model: AppModel
 
+  private var selection: Binding<ViewID?> {
+    Binding(
+      get: { model.view },
+      set: { next in if let next { model.navigate(next) } }
+    )
+  }
+
   var body: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      HStack(spacing: 4) {
-        Spacer().frame(width: 70) // traffic lights
-        IconButton(systemImage: "sidebar.left", label: model.t("app.sidebar.collapse")) { model.sidebarOpen = false }
-        IconButton(systemImage: "chevron.left", label: model.t("app.nav.back")) { model.back() }
-          .disabled(!model.canGoBack)
-        IconButton(systemImage: "chevron.right", label: model.t("app.nav.forward")) { model.forward() }
-          .disabled(!model.canGoForward)
-        Spacer()
+    List(selection: selection) {
+      ForEach(ViewID.allCases) { item in
+        SidebarRow(item: item)
+          .tag(item)
       }
-      .frame(height: 44)
-
-      HStack {
-        Text("Codex Router").font(.system(size: 15, weight: .semibold))
-        Spacer()
-        IconButton(systemImage: "magnifyingglass", label: model.t("app.search.aria")) { model.searchOpen = true }
-      }
-      .padding(.horizontal, 14)
-      .padding(.bottom, 10)
-
-      ScrollView {
-        VStack(alignment: .leading, spacing: 2) {
-          ForEach(ViewID.allCases) { item in
-            SidebarItem(item: item)
-          }
-        }
-        .padding(.horizontal, 8)
-      }
-
-      Spacer(minLength: 0)
-      Divider()
-      SidebarFooter()
-        .padding(12)
     }
-    .background(Palette.sidebar)
+    .listStyle(.sidebar)
+    .safeAreaInset(edge: .bottom, spacing: 0) {
+      SidebarFooter()
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
   }
 }
 
-private struct SidebarItem: View {
+private struct SidebarRow: View {
   @EnvironmentObject private var model: AppModel
   let item: ViewID
 
   var body: some View {
-    let selected = model.view == item
-    Button {
-      model.navigate(item)
-    } label: {
-      HStack(spacing: 9) {
-        Image(systemName: item.systemImage)
-          .frame(width: 16)
-          .foregroundStyle(selected ? Color.accentColor : Color.secondary)
-        Text(model.label(for: item))
-          .font(.system(size: 13, weight: selected ? .semibold : .regular))
-          .lineLimit(1)
-        Spacer(minLength: 4)
+    Label {
+      HStack(spacing: 6) {
+        Text(model.label(for: item)).lineLimit(1)
         if item.experimental {
-          Badge(model.t("nav.harness.experimental"), tone: .warning)
+          Spacer(minLength: 4)
+          // A selected row can be accent-filled while the list has focus,
+          // where a tinted tag would disappear.
+          Badge(model.t("nav.harness.experimental"), tone: model.view == item ? .neutral : .warning)
         }
       }
-      .padding(.horizontal, 10)
-      .padding(.vertical, 7)
-      .background(
-        RoundedRectangle(cornerRadius: 7, style: .continuous)
-          .fill(selected ? Palette.selection : Color.clear)
-      )
-      .contentShape(Rectangle())
+    } icon: {
+      Image(systemName: item.systemImage)
     }
-    .buttonStyle(.plain)
     .help(model.description(for: item))
-    .accessibilityAddTraits(selected ? .isSelected : [])
   }
 }
 
@@ -154,6 +101,7 @@ private struct SidebarFooter: View {
       Circle()
         .fill(online ? Palette.success : Palette.danger)
         .frame(width: 8, height: 8)
+        .accessibilityHidden(true)
       VStack(alignment: .leading, spacing: 1) {
         Text(online ? model.t("app.health.online") : model.t("app.health.offline"))
           .font(.system(size: 12, weight: .semibold))
@@ -172,6 +120,7 @@ private struct SidebarFooter: View {
         .foregroundStyle(.secondary)
         .lineLimit(1)
       }
+      .accessibilityElement(children: .combine)
       Spacer()
       IconButton(
         systemImage: model.isDark ? "sun.max" : "moon",
@@ -183,37 +132,68 @@ private struct SidebarFooter: View {
   }
 }
 
-private struct TitleRow: View {
+/// The active page, with the section's title and the window-wide actions in
+/// the toolbar.
+private struct Detail: View {
   @EnvironmentObject private var model: AppModel
 
   var body: some View {
-    HStack(spacing: 10) {
-      if !model.sidebarOpen {
-        Spacer().frame(width: 70)
-        IconButton(systemImage: "sidebar.left", label: model.t("app.sidebar.expand")) { model.sidebarOpen = true }
-      }
-      Text(model.label(for: model.view)).font(.system(size: 13, weight: .semibold))
-      Text(model.t("app.title.overview")).font(.system(size: 13)).foregroundStyle(.secondary)
-      if model.view.experimental {
-        Badge(model.t("nav.harness.experimental"), tone: .warning)
-      }
-      Spacer()
-      if let operation = model.operation, operation.status == .started {
-        HStack(spacing: 6) {
-          ProgressView().controlSize(.small)
-          Text(model.t.backend(operation.message ?? operation.action))
-            .font(.system(size: 12))
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
+    ScrollView {
+      VStack(alignment: .leading, spacing: 16) {
+        if let message = model.loadError ?? model.firstReadError {
+          InlineNotice(tone: .warning, title: model.t("app.data.loadError"), message: model.t.backend(message))
         }
+        page
       }
-      IconButton(systemImage: "arrow.clockwise", label: model.t("app.refreshAll")) {
-        Task { await model.refreshAll() }
-      }
-      .disabled(model.refreshing)
+      .padding(.horizontal, 28)
+      .padding(.vertical, 22)
+      .frame(maxWidth: 1180, alignment: .leading)
+      .frame(maxWidth: .infinity, alignment: .top)
     }
-    .padding(.horizontal, 16)
-    .frame(height: 44)
+    .id(model.view)
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background(Palette.canvas)
+    .navigationTitle(model.label(for: model.view))
+    .toolbar {
+      ToolbarItemGroup(placement: .navigation) {
+        Button { model.back() } label: { Label(model.t("app.nav.back"), systemImage: "chevron.left") }
+          .help(model.t("app.nav.back"))
+          .disabled(!model.canGoBack)
+        Button { model.forward() } label: { Label(model.t("app.nav.forward"), systemImage: "chevron.right") }
+          .help(model.t("app.nav.forward"))
+          .disabled(!model.canGoForward)
+      }
+      ToolbarItemGroup(placement: .primaryAction) {
+        if let operation = model.operation, operation.status == .started {
+          HStack(spacing: 6) {
+            ProgressView().controlSize(.small)
+            Text(model.t.backend(operation.message ?? operation.action))
+              .font(.system(size: 12))
+              .foregroundStyle(.secondary)
+              .lineLimit(1)
+              .frame(maxWidth: 260)
+          }
+        }
+        Button { model.searchOpen = true } label: { Label(model.t("app.search.aria"), systemImage: "magnifyingglass") }
+          .help(model.t("app.search.aria"))
+        Button { Task { await model.refreshAll() } } label: { Label(model.t("app.refreshAll"), systemImage: "arrow.clockwise") }
+          .help(model.t("app.refreshAll"))
+          .disabled(model.refreshing)
+      }
+    }
+  }
+
+  @ViewBuilder private var page: some View {
+    switch model.view {
+    case .dashboard: DashboardPage()
+    case .usage: UsagePage()
+    case .status: StatusPage()
+    case .models: ModelsPage()
+    case .local: LocalPage()
+    case .harness: HarnessPage()
+    case .context: ContextPage()
+    case .settings: SettingsPage()
+    }
   }
 }
 

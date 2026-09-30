@@ -82,7 +82,11 @@ public enum RouterLocator {
       directory = directory.deletingLastPathComponent()
     }
     for root in roots {
+      // `swift run` starts the binary by a relative path. A relative URL
+      // keeps resolving against the launching directory, which the bridge's
+      // own working directory is not, so hand the child an absolute one.
       let script = root.appendingPathComponent("apps/control-center/electron/native-bridge.mjs")
+        .absoluteURL.standardizedFileURL
       if fileExists(script.path) { return script }
     }
     return nil
@@ -93,7 +97,7 @@ public enum RouterLocator {
     environment: [String: String] = ProcessInfo.processInfo.environment,
     home: URL = FileManager.default.homeDirectoryForCurrentUser,
     resources: URL? = Bundle.main.resourceURL,
-    executable: URL = URL(fileURLWithPath: CommandLine.arguments.first ?? "/")
+    executable: URL = Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments.first ?? "/")
   ) throws -> BridgeLaunch {
     guard let node = nodeExecutable(environment: environment, home: home) else {
       throw ControlCenterError(

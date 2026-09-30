@@ -589,7 +589,7 @@ export const backendMessageKeys = {
   "Hourly bars use the latest 1,000 event details; this router does not publish an hourly rollup.": "dashboard.traffic.hourlyEvents",
   "Daily bars use the retained provider ledger when available.": "dashboard.traffic.dailyLedger",
   "{requests} requests observed in {range}, but token counts were not reported by the upstream responses.": "dashboard.traffic.requestsObserved",
-  "The router returned an empty {range} telemetry window; this is different from a failed health check.": "dashboard.traffic.emptyWindow",
+  "The router returned no telemetry for {range}; this is different from a failed health check.": "dashboard.traffic.emptyWindow",
   "the last 24 hours": "dashboard.range.last24h",
   "the last {range} days": "dashboard.range.lastDays",
   "Dashboard traffic range": "dashboard.rangeAria",

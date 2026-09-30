@@ -51,6 +51,25 @@ enum Tone {
     case .accent: return Palette.accent
     }
   }
+
+  /// Small tinted text. The system tints are tuned for fills and glyphs; at
+  /// badge size orange and green on a light surface fall well short of a
+  /// readable contrast, so light appearances use a deeper shade.
+  var textColor: Color {
+    switch self {
+    case .neutral: return .secondary
+    case .accent: return Palette.accent
+    case .success: return Self.adaptive(light: NSColor(srgbRed: 0.10, green: 0.50, blue: 0.20, alpha: 1), dark: .systemGreen)
+    case .warning: return Self.adaptive(light: NSColor(srgbRed: 0.70, green: 0.36, blue: 0.00, alpha: 1), dark: .systemOrange)
+    case .danger: return Self.adaptive(light: NSColor(srgbRed: 0.78, green: 0.13, blue: 0.11, alpha: 1), dark: .systemRed)
+    }
+  }
+
+  private static func adaptive(light: NSColor, dark: NSColor) -> Color {
+    Color(nsColor: NSColor(name: nil) { appearance in
+      appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+    })
+  }
 }
 
 struct Badge: View {
@@ -68,7 +87,7 @@ struct Badge: View {
       .lineLimit(1)
       .padding(.horizontal, 6)
       .padding(.vertical, 2)
-      .foregroundStyle(tone == .neutral ? Color.secondary : tone.color)
+      .foregroundStyle(tone.textColor)
       .background(Capsule().fill(tone.color.opacity(tone == .neutral ? 0.12 : 0.14)))
   }
 }
