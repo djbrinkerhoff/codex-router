@@ -7,11 +7,11 @@ import SwiftUI
 
 /// One image-reader engine offered by the vision bridge.
 struct LocalEngine: Identifiable, Equatable {
-  enum Group { case chatgpt, provider }
+  enum Source { case chatgpt, provider }
 
   let slug: String
   let displayName: String
-  let group: Group
+  let group: Source
   let efforts: [String]
 
   var id: String { "\(group)-\(slug)" }
@@ -136,7 +136,7 @@ enum LocalSupport {
     "preparing", "downloading", "loading", "starting-server", "verifying", "publishing",
   ]
 
-  static func engines(_ list: JSONValue?, group: LocalEngine.Group) -> [LocalEngine] {
+  static func engines(_ list: JSONValue?, group: LocalEngine.Source) -> [LocalEngine] {
     (list?.items ?? []).compactMap { item -> LocalEngine? in
       guard let slug = item["slug"]?.string else { return nil }
       return LocalEngine(

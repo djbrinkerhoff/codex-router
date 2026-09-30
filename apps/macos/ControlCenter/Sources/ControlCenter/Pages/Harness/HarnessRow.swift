@@ -118,7 +118,7 @@ struct HarnessRow: View {
 
   @ViewBuilder
   private var bridgeLine: some View {
-    if let bridge, bridge["installed"].truthy {
+    if let bridge = bridge, bridge["installed"].truthy {
       let count = Int(bridge["sessions"]?.double ?? 0)
       Text(count > 0 ? model.t("harness.row.agentCount", ["count": count]) : model.t("harness.row.agent"))
         .font(.system(size: 11))

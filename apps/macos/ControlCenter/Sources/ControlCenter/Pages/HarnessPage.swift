@@ -26,8 +26,8 @@ struct HarnessPage: View {
         onRefresh: refresh
       )
       summary(clients: clients, routedModelCount: routedModelCount)
-      if let loadError {
-        InlineNotice(tone: .warning, title: model.t("harness.detectionIncomplete"), message: loadError)
+      if let errorMessage = loadError {
+        InlineNotice(tone: .warning, title: model.t("harness.detectionIncomplete"), message: errorMessage)
       }
       clientList(clients: clients, routedModelCount: routedModelCount)
       continuum(clients: clients, routedModelCount: routedModelCount)
@@ -279,7 +279,7 @@ struct HarnessPage: View {
       bridge: HarnessSupport.bridge(for: id, in: agentBridges),
       enabled: routingEnabled(harness),
       busy: isBusy(id),
-      terminalAvailable: snapshot?["terminalAvailable"].truthy ?? false,
+      terminalAvailable: (snapshot?["terminalAvailable"]).truthy,
       updateAvailable: harness["canUpdate"].truthy,
       cursorHostname: $cursorHostname,
       handlers: handlers
@@ -290,7 +290,8 @@ struct HarnessPage: View {
 
   private func continuum(clients: [JSONValue], routedModelCount: Int) -> some View {
     let t = model.t
-    let cursorConfigured = clients.first { $0["id"]?.string == "cursor" }?["configured"].truthy ?? false
+    let cursorRow = clients.first { $0["id"]?.string == "cursor" }
+    let cursorConfigured = (cursorRow?["configured"]).truthy
     let active = (model.target?["active"]).truthy
     return VStack(alignment: .leading, spacing: 12) {
       SectionHeading(
